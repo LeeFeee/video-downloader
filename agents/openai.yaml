@@ -1,0 +1,4 @@
+interface:
+  display_name: "视频下载"
+  short_description: "独立下载网站视频与音频，支持续传、媒体校验和浏览器辅助解析"
+  default_prompt: "使用 $video-downloader 下载这个视频，校验媒体并返回本地文件。"
