@@ -100,7 +100,7 @@ def test_batch_partial_failure_and_report(media_server, tmp_path, capsys):
     result = json.loads(capsys.readouterr().out)
     assert code == 1 and len(result["results"]) == 2
     assert result["results"][1]["success"]
-    assert json.loads(report.read_text()) == result
+    assert json.loads(report.read_text(encoding="utf-8")) == result
 
 
 def test_inspect_no_media_created(media_server, tmp_path, capsys):

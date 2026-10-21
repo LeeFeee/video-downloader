@@ -61,9 +61,8 @@ def media_root(tmp_path_factory):
         ],
         check=True,
     )
-    subprocess.run(
-        [*base, "-i", str(root / "clip.mp4"), "-c", "copy", "-f", "dash", str(root / "stream.mpd")], check=True
-    )
+    # Use a relative manifest so Windows FFmpeg writes its segments beside the MPD.
+    subprocess.run([*base, "-i", "clip.mp4", "-c", "copy", "-f", "dash", "stream.mpd"], check=True, cwd=root)
     (root / "invalid.mp4").write_text("<html>login required</html>" * 100)
     (root / "broken.m3u8").write_text((root / "stream.m3u8").read_text().replace("stream0.ts", "missing.ts"))
     (root / "page.html").write_text(
