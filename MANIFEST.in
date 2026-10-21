@@ -1,0 +1,5 @@
+include SKILL.md README.md LICENSE VALIDATION.md
+recursive-include agents *.yaml
+recursive-include references *.md
+include scripts/download.py scripts/douyin_downloader.py scripts/douyin_cookie_extractor.py
+recursive-include tests *.py

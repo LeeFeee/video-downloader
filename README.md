@@ -1,164 +1,124 @@
-# Video Downloader
+# Video Downloader 2
 
-通用视频下载工具，支持 YouTube、Bilibili、Twitter/X、抖音、小红书等 1000+ 视频网站。
-
-## 功能特点
-
-- 支持 **1000+ 视频网站**，包括国内外主流平台
-- 抖音视频专用下载器（基于 Playwright + Cookie）
-- 自动检测并安装依赖
-- 命令行简单易用
-
-## 免责声明
-
-> **重要提示**：各个视频平台会随时改变其访问限制策略和反爬虫机制。本工具依赖于这些平台的现有接口工作，**不能保证在任何时候都能正常工作**。如果下载失败，可能是平台策略变化导致的，需要等待工具更新。
-
-## 致谢
-
-本工具基于以下优秀的开源项目：
-
-- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** - youtube-dl 的分支版本，支持更多网站和更新维护
-- **[Playwright](https://github.com/microsoft/playwright-python)** - 微软出品的浏览器自动化工具，用于抖音视频下载
-- **[douyin-downloader](https://github.com/jiji262/douyin-downloader)** - 抖音下载参考项目
-
-感谢这些开源项目的作者和贡献者！
+可独立安装、可维护的视频下载 skill 与命令行工具。网站解析交给持续更新的 [yt-dlp](https://github.com/yt-dlp/yt-dlp)，本项目负责依赖隔离、参数与批量任务、登录会话、重试与续传、结果校验，以及抖音/小红书的浏览器辅助解析。无需其他 skill、私人 API、远程解析服务或用户本机的旧脚本。
 
 ## 安装
-### Claude Code Skill 一键安装
+
+作为 Codex / Claude Code 等工具的 skill：
 
 ```bash
 npx skills add LeeFeee/video-downloader
 ```
 
-### 基础依赖（自动安装）
+也可直接克隆并使用（Python 3.10+）：
 
 ```bash
-pip install yt-dlp
+git clone https://github.com/LeeFeee/video-downloader.git
+cd video-downloader
+python3 scripts/download.py setup
+python3 scripts/download.py doctor
 ```
 
-### 抖音下载（可选）
+`setup` 在 `~/.cache/video-downloader/runtime-<Python版本>/` 建立独立环境，不向系统 Python 安装包；首次下载也会自动准备。支持 `VIDEO_DOWNLOADER_HOME` 指定私有数据目录、`XDG_CACHE_HOME` 指定缓存根目录。已经安装满足要求的 Python 包时可直接使用当前解释器。`--no-install` 可禁止下载时安装。
 
-如果需要下载抖音视频，需要额外安装：
+FFmpeg / ffprobe 用于音视频合并、提取音频和成品校验：
 
 ```bash
-pip install playwright
-playwright install chromium
+brew install ffmpeg                 # macOS
+sudo apt install ffmpeg python3-venv # Debian / Ubuntu
+winget install Gyan.FFmpeg          # Windows
 ```
 
-### FFmpeg（可选）
+YouTube 还需要 Deno 2.3+（推荐）或 Node 22+；脚本自动启用已安装的兼容运行时。EJS 随 `yt-dlp[default]` 安装，不在每次下载时从网络加载脚本。依据：[上游 EJS 安装说明](https://github.com/yt-dlp/yt-dlp/wiki/EJS)。
 
-部分视频需要 FFmpeg 进行合并：
+Python 命令行包安装方式：
 
 ```bash
-brew install ffmpeg  # macOS
+pipx install 'git+https://github.com/LeeFeee/video-downloader.git'
+video-downloader doctor
+video-downloader "视频URL"
 ```
 
-## 使用方法
-
-### Claude Code Skill 调用（**推荐用法**）
+## 使用
 
 ```bash
-url 下载这个视频
+# 分享文本也可直接传入；请用引号保护 URL 中的 & 等字符
+python3 scripts/download.py "视频URL"
+python3 scripts/download.py "视频URL" "/path/to/output"  # 兼容 v1
+python3 scripts/download.py download "视频URL" -o ~/Downloads/Videos --max-height 1080
+python3 scripts/download.py "视频URL" --audio --audio-format mp3
+python3 scripts/download.py "视频URL" --container mp4 --require-audio
+
+# 只查看信息与格式，不创建媒体文件
+python3 scripts/download.py inspect "视频URL" --json
+
+# 多个 URL 或一行一条的 UTF-8 文件；一条失败不会吞掉其他条目的结果
+python3 scripts/download.py download "URL1" "URL2" --json --report result.json
+python3 scripts/download.py download --batch urls.txt -o ./videos
+
+# 合集必须明确启用，默认限 20 条
+python3 scripts/download.py "合集URL" --playlist --max-items 50
 ```
 
-### 下载视频
+默认单条链接只取一项；不会意外把播放列表整份下载。默认文件名含站点和视频 ID，避免不同视频因同名覆盖。同名成品不覆盖，但仍会校验；换质量或重下损坏文件时显式传 `--overwrite`。自动保留源容器；`--container mp4` 是重封装，不能保证所有播放器都支持源编码。
+
+## 登录与浏览器辅助
 
 ```bash
-python3 scripts/download.py "<视频URL>"
+python3 scripts/download.py "URL" --cookies /private/path/cookies.txt
+python3 scripts/download.py "URL" --cookies-from-browser chrome
+python3 scripts/download.py setup --browser
+python3 scripts/download.py login douyin
+python3 scripts/download.py login xiaohongshu
+python3 scripts/download.py "完整分享文本" --browser on --headed --browser-timeout 180
 ```
 
-### 指定输出目录
+Cookie 文件使用 Netscape 格式，保留 domain、path、secure、HTTPOnly 和有效期。传入文件会复制到临时目录供解析器使用，不修改原件。专用登录流程只保存所选站点的 Cookie，存入私有缓存的 `cookies/`，文件权限为 `0600`（POSIX）；不打印 Cookie 值，也不自动扫描个人浏览器。旧版 `scripts/douyin_cookie_extractor.py` 会转到新的抖音登录流程。
+
+浏览器是有限的补救路径：先走 yt-dlp；失败后仅对抖音、小红书读取页面状态和 JSON 响应，且必须匹配请求视频 ID。不会把推荐流或广告的媒体请求当成目标。`auto` 只使用已安装组件；`on` 允许安装缺少的组件；`off` 禁用浏览器。图文笔记、DRM、登录权限缺失等会明确失败。登录窗口由用户完成扫码或验证。
+
+## 稳定性约定
+
+- HTTP、分片、解析均有重试上限；临时 5xx 解析失败也会退避重试。每条链接每个引擎默认最长 1800 秒，可用 `--timeout` 修改；浏览器解析另受 `--browser-timeout` 限制。
+- HTTP Range 与 HLS/DASH 分片续传由 yt-dlp 负责；缺失分片终止任务，不默默拼出残片视频。
+- 只接受 `after_move` 返回的最终文件路径，不扫描“最近修改的文件”。同一输出目录有进程锁，防止并行写入冲突。
+- 安装 ffprobe 后检查真实媒体流；音频任务必须有音轨，`--require-audio` 要求视频和音频均存在。没装 ffprobe 时退回文件头校验，并明确标记 `header_only`。
+- `--json` 的 stdout 始终为一个结果对象（参数解析错误除外），日志走 stderr。批量任务只要一条失败，整体退出码非零；每条记录包含自身结果及已成功文件。
+- 下载 URL 的查询凭据和 Cookie 不写入结果清单；诊断会脱敏。结果中保留视频 ID、标题、最终路径、大小、媒体流和校验方式。
+- 不读取外部 yt-dlp 配置或自动加载未知插件，避免其他工具的全局设置改变下载结果。
+
+退出码：`0` 全部成功，`1` 下载/环境失败，`2` 参数错误，`130` 用户中止。
+
+## 更新与诊断
 
 ```bash
-python3 scripts/download.py "<视频URL>" "/path/to/output"
+python3 scripts/download.py doctor --json
+python3 scripts/download.py update
+python3 scripts/download.py update --channel nightly  # 需要上游预发布修复时
+python3 scripts/download.py download --help
 ```
 
-### 下载 YouTube 视频（使用 Android 客户端绕过限制）
+更新仅作用于本工具的独立环境，不改系统工具。更多代理、请求头、格式表达式和错误处理见 [故障定位](references/troubleshooting.md)。
+
+## 验证与维护
 
 ```bash
-python3 -m yt_dlp --extractor-args "youtube:player_client=android" "<视频URL>" -o "~/Downloads/Videos/%(title)s.%(ext)s"
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev,browser]'
+.venv/bin/python -m pytest -q
+.venv/bin/python -m ruff check --config pyproject.toml scripts tests
+.venv/bin/python -m build
 ```
 
-### 抖音视频下载
+Windows 把 `.venv/bin/python` 换成 `.venv\Scripts\python.exe`。测试使用本地生成的带音轨视频和受控 HTTP 服务，覆盖 MP4、HLS、DASH、HTML 视频、音频提取、重试、断流、Range 续传、重复下载、批量部分失败和 Cookie 属性；不依赖外部网站或个人登录态。浏览器适配器另有目标 ID 和结构解析测试。CI 在 Linux/macOS/Windows 与多版 Python 上运行。
 
-首次使用需要获取 Cookie：
+实网验证记录与范围见 [VALIDATION.md](VALIDATION.md)。网站支持范围跟随 [yt-dlp extractors](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)；列入上游支持列表不等于每个链接、每种登录状态都经过本项目验证。
 
-```bash
-python3 scripts/douyin_cookie_extractor.py
-```
+## 开源来源
 
-扫码登录后，Cookie 会自动保存到 `~/Downloads/douyin_cookies_simple.txt`，之后即可直接下载抖音视频。
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)：网页解析、格式选择、下载及后处理。
+- [Playwright](https://github.com/microsoft/playwright)：可选的专用浏览器会话与页面状态读取。
+- [FFmpeg](https://ffmpeg.org/)：系统安装的音视频工具，不随本仓库分发。
+- v1 抖音流程曾参考 [douyin-downloader](https://github.com/jiji262/douyin-downloader)。v2 已移除未使用的旧 `apiproxy` / X-Bogus 实现，浏览器适配器由本项目维护。
 
-## 支持的网站
-
-### 国外平台
-- YouTube
-- Twitter/X
-- Instagram
-- TikTok
-- Vimeo
-- Facebook
-- Twitch
-- ...更多
-
-### 国内平台
-- Bilibili
-- 抖音
-- 快手
-- 小红书
-- 西瓜视频
-- ...更多
-
-完整支持列表请查看 [yt-dlp 支持网站列表](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
-
-## 文件结构
-
-```
-video-downloader/
-├── SKILL.md                      # 技能说明
-├── README.md                     # 本文档
-└── scripts/
-    ├── download.py               # 主下载脚本
-    ├── douyin_downloader.py      # 抖音专用下载器
-    ├── douyin_cookie_extractor.py # 抖音 Cookie 提取器
-    └── apiproxy/                 # 抖音 API 模块
-```
-
-## 常见问题
-
-### Q: YouTube 下载失败，提示访问被拒绝？
-
-A: YouTube 会不定期更新反爬虫策略。可以尝试使用 Android 客户端模式：
-
-```bash
-python3 -m yt_dlp --extractor-args "youtube:player_client=android" "<URL>"
-```
-
-### Q: 抖音视频下载失败？
-
-A: 可能是 Cookie 过期了。重新运行 Cookie 提取脚本：
-
-```bash
-python3 scripts/douyin_cookie_extractor.py
-```
-
-### Q: 下载的视频没有声音？
-
-A: 需要安装 FFmpeg：
-
-```bash
-brew install ffmpeg  # macOS
-sudo apt install ffmpeg  # Ubuntu/Debian
-```
-
-## 许可证
-
-MIT License
-
-## 更新日志
-
-### v1.0.0 (2025-02-03)
-- 初始版本
-- 支持 yt-dlp 下载 1000+ 平台
-- 抖音专用下载器（Playwright + Cookie）
-- 自动 Cookie 提取工具
+本仓库代码为 MIT，依赖分别遵循其上游许可证。

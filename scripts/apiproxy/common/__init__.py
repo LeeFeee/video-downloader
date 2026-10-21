@@ -1,5 +1,0 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-from .utils import Utils
-
-__all__ = ['Utils']
